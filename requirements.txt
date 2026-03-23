@@ -1,0 +1,4 @@
+python-telegram-bot
+notion-client
+google-generativeai
+python-dotenv
