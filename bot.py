@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-from ai_handler import AIHandler
+from ai_handler import AIHandler, GeminiServiceError
 from notion_handler import NotionHandler
 
 
@@ -32,7 +32,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(
         "Hola. Soy tu bot de apuntes en Notion.\n"
         "Usa /horario para ver tu horario y /resumir [materia] [YYYY-MM-DD] para resumir"
-        " todos los apuntes de esa materia desde esa fecha hasta hoy."
+        " todos los apuntes de esa materia desde esa fecha hasta hoy.\n"
+        "Tambien puedes usar /definir [concepto] para obtener una definicion neurocientifica."
     )
 
 
@@ -102,6 +103,15 @@ async def resumir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             fecha=fecha,
             apuntes_texto=texto_fuente,
         )
+    except GeminiServiceError as err:
+        LOGGER.error(
+            "Gemini fallo en /resumir | tipo=%s | detalle=%s",
+            err.error_type,
+            err.debug_message,
+            exc_info=True,
+        )
+        await update.message.reply_text(err.user_message)
+        return
     except Exception as err:
         LOGGER.exception("Error generando resumen con Gemini")
         await update.message.reply_text(f"Error usando Gemini: {err}")
@@ -128,6 +138,39 @@ async def resumir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if page_url:
         message += f"\nURL: {page_url}"
     await update.message.reply_text(message)
+
+
+async def definir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    services: Services = context.application.bot_data["services"]
+
+    if not context.args:
+        await update.message.reply_text("Uso: /definir [concepto]")
+        return
+
+    concepto = " ".join(context.args).strip()
+    if not concepto:
+        await update.message.reply_text("Debes enviar un concepto para definir.")
+        return
+
+    await update.message.reply_text("Consultando Gemini para generar la definicion...")
+    try:
+        definicion = services.ai.generate_definition(concepto)
+    except GeminiServiceError as err:
+        LOGGER.error(
+            "Gemini fallo en /definir | tipo=%s | detalle=%s | concepto=%s",
+            err.error_type,
+            err.debug_message,
+            concepto,
+            exc_info=True,
+        )
+        await update.message.reply_text(err.user_message)
+        return
+    except Exception as err:
+        LOGGER.exception("Error inesperado en /definir")
+        await update.message.reply_text(f"Error generando definicion: {err}")
+        return
+
+    await update.message.reply_text(definicion)
 
 
 def _build_services() -> tuple[str, Services]:
@@ -178,6 +221,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("horario", horario_command))
     app.add_handler(CommandHandler("resumir", resumir_command))
+    app.add_handler(CommandHandler("definir", definir_command))
 
     app.run_polling()
 

@@ -14,7 +14,7 @@ Ejemplo:
 
 Respuesta esperada:
 - Mensaje de bienvenida.
-- Explicacion breve de `/horario` y `/resumir`.
+- Explicacion breve de `/horario`, `/resumir` y `/definir`.
 
 ## /horario
 
@@ -58,3 +58,32 @@ Errores comunes:
 - Si no hay apuntes en el rango de fechas: el bot lo informa.
 - Si la fecha tiene formato invalido: Notion/Python puede lanzar error y el bot te lo reporta.
 - Si faltan variables en `.env`: el bot no arranca hasta completar la configuracion.
+
+## /definir [concepto]
+
+Genera una definicion de un concepto desde el enfoque de Neurociencias.
+
+Formato:
+
+```text
+/definir [concepto]
+```
+
+Ejemplos:
+
+```text
+/definir plasticidad sinaptica
+/definir potencial de accion
+/definir memoria de trabajo
+```
+
+Respuesta esperada:
+- Definicion tecnica y clara.
+- Relevancia dentro de Neurociencias.
+- Ejemplo breve de aplicacion.
+- Longitud maxima de 2000 caracteres.
+
+Errores comunes:
+- Si Gemini no responde a tiempo: el bot te pide reintentar.
+- Si se excede rate limit/cuota: el bot te avisa que intentes despues.
+- Si ocurre error inesperado: se registra detalle en logs para depuracion.

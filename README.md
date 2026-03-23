@@ -191,6 +191,7 @@ En Google Cloud Compute Engine, para que la VM no se apague:
 - `/start`: mensaje inicial.
 - `/horario`: envia la imagen del horario usando `PATH_HORARIO`.
 - `/resumir [materia] [YYYY-MM-DD]`: obtiene apuntes por materia desde la fecha indicada hasta hoy, genera resumen y lo guarda en Notion.
+- `/definir [concepto]`: genera una definicion orientada a Neurociencias (maximo 2000 caracteres).
 
 ## Nota de escalabilidad
 
