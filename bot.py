@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
+from telegram.error import Conflict
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -64,6 +66,12 @@ async def resumir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     materia = " ".join(context.args[:-1]).strip()
     if not materia:
         await update.message.reply_text("La materia no puede estar vacia.")
+        return
+
+    try:
+        datetime.strptime(fecha, "%Y-%m-%d")
+    except ValueError:
+        await update.message.reply_text("Formato de fecha invalido. Usa YYYY-MM-DD.")
         return
 
     await update.message.reply_text("Buscando apuntes en Notion...")
@@ -173,6 +181,21 @@ async def definir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text(definicion)
 
 
+async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    del update
+    err = context.error
+
+    if isinstance(err, Conflict):
+        LOGGER.error(
+            "Telegram devolvio 409 Conflict: ya existe otra instancia usando este token. "
+            "Deteniendo esta instancia para evitar bucle de errores."
+        )
+        context.application.stop_running()
+        return
+
+    LOGGER.exception("Error no controlado en el bot", exc_info=err)
+
+
 def _build_services() -> tuple[str, Services]:
     load_dotenv()
 
@@ -180,6 +203,7 @@ def _build_services() -> tuple[str, Services]:
     notion_token = os.getenv("NOTION_TOKEN", "")
     db_apuntes = os.getenv("NOTION_DB_APUNTES_ID", "")
     db_resumenes = os.getenv("NOTION_DB_RESUMENES_ID", "")
+    resumen_title_property = os.getenv("NOTION_RESUMEN_TITLE_PROPERTY", "").strip() or None
     gemini_api_key = os.getenv("GEMINI_API_KEY", "")
     path_horario_env = os.getenv("PATH_HORARIO", "assets/horario.png")
 
@@ -197,11 +221,20 @@ def _build_services() -> tuple[str, Services]:
     if missing:
         raise RuntimeError(f"Variables faltantes en .env: {', '.join(missing)}")
 
-    notion = NotionHandler(
-        notion_token=notion_token,
-        apuntes_db_id=db_apuntes,
-        resumenes_db_id=db_resumenes,
-    )
+    try:
+        notion = NotionHandler(
+            notion_token=notion_token,
+            apuntes_db_id=db_apuntes,
+            resumenes_db_id=db_resumenes,
+            resumenes_title_property=resumen_title_property,
+        )
+    except Exception as err:
+        raise RuntimeError(
+            "Error inicializando Notion. Revisa NOTION_DB_APUNTES_ID y "
+            "NOTION_DB_RESUMENES_ID, y confirma que ambas DB estan compartidas "
+            "con la integracion de Notion. "
+            f"Detalle: {err}"
+        ) from err
     ai = AIHandler(gemini_api_key=gemini_api_key)
 
     path_horario = Path(path_horario_env)
@@ -213,7 +246,11 @@ def _build_services() -> tuple[str, Services]:
 
 
 def main() -> None:
-    telegram_token, services = _build_services()
+    try:
+        telegram_token, services = _build_services()
+    except Exception as err:
+        LOGGER.error("Fallo de inicializacion del bot: %s", err)
+        raise SystemExit(1) from err
 
     app = ApplicationBuilder().token(telegram_token).build()
     app.bot_data["services"] = services
@@ -222,6 +259,7 @@ def main() -> None:
     app.add_handler(CommandHandler("horario", horario_command))
     app.add_handler(CommandHandler("resumir", resumir_command))
     app.add_handler(CommandHandler("definir", definir_command))
+    app.add_error_handler(global_error_handler)
 
     app.run_polling()
 

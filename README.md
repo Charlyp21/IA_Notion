@@ -50,6 +50,7 @@ cp .env.example .env
 - `NOTION_TOKEN`
 - `NOTION_DB_APUNTES_ID`
 - `NOTION_DB_RESUMENES_ID`
+- `NOTION_RESUMEN_TITLE_PROPERTY` (opcional, por defecto suele ser `Name`)
 - `GEMINI_API_KEY`
 - `PATH_HORARIO` (por defecto `assets/horario.png`)
 

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-import google.generativeai as genai
-from google.api_core.exceptions import DeadlineExceeded, GoogleAPICallError, ResourceExhausted, ServiceUnavailable
+try:
+    import google.genai as genai
+except ImportError as err:
+    raise ImportError(
+        "No se pudo importar google.genai. Instala/actualiza dependencias con: "
+        "pip install -r requirements.txt"
+    ) from err
 
 
 SYSTEM_PROMPT = """
@@ -31,40 +37,46 @@ class GeminiServiceError(RuntimeError):
 
 
 class AIHandler:
-    def __init__(self, gemini_api_key: str, model_name: str = "gemini-1.5-pro") -> None:
-        genai.configure(api_key=gemini_api_key)
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
-            system_instruction=SYSTEM_PROMPT,
-        )
+    def __init__(self, gemini_api_key: str, model_name: str = "gemini-2.5-flash") -> None:
+        self.client = genai.Client(api_key=gemini_api_key)
+        self.model_name = model_name
 
-    def _generate_content_text(self, prompt: str) -> str:
-        try:
-            response = self.model.generate_content(prompt)
-        except ResourceExhausted as err:
-            raise GeminiServiceError(
+    @staticmethod
+    def _classify_gemini_error(err: Exception) -> GeminiServiceError:
+        status_code = getattr(err, "status_code", None)
+        error_text = str(err).lower()
+
+        if status_code == 429 or "429" in error_text or "rate" in error_text or "quota" in error_text:
+            return GeminiServiceError(
                 user_message="Gemini alcanzo el limite de uso. Intenta de nuevo en unos minutos.",
                 debug_message=f"Rate limit o cuota agotada: {err}",
                 error_type="rate_limit",
-            ) from err
-        except (DeadlineExceeded, ServiceUnavailable) as err:
-            raise GeminiServiceError(
+            )
+
+        if status_code in (408, 503, 504) or "timeout" in error_text or "deadline" in error_text:
+            return GeminiServiceError(
                 user_message="Gemini no respondio a tiempo. Intenta de nuevo en un momento.",
                 debug_message=f"Timeout o servicio no disponible: {err}",
                 error_type="timeout",
-            ) from err
-        except GoogleAPICallError as err:
-            raise GeminiServiceError(
-                user_message="Error de comunicacion con Gemini. Intenta nuevamente.",
-                debug_message=f"Fallo de API Gemini: {err}",
-                error_type="api_error",
-            ) from err
+            )
+
+        return GeminiServiceError(
+            user_message="Error de comunicacion con Gemini. Intenta nuevamente.",
+            debug_message=f"Fallo de API Gemini: {err}",
+            error_type="api_error",
+        )
+
+    def _generate_content_text(self, prompt: str) -> str:
+        final_prompt = f"{SYSTEM_PROMPT}\n\n{prompt}".strip()
+        try:
+            response: Any = self.client.models.generate_content(
+                model=self.model_name,
+                contents=final_prompt,
+            )
+        except GeminiServiceError:
+            raise
         except Exception as err:
-            raise GeminiServiceError(
-                user_message="Ocurrio un error inesperado con Gemini.",
-                debug_message=f"Error inesperado en Gemini: {err}",
-                error_type="unexpected",
-            ) from err
+            raise self._classify_gemini_error(err) from err
 
         text = getattr(response, "text", "")
         return text.strip()
@@ -87,10 +99,10 @@ Formato obligatorio:
 Apuntes fuente:
 {apuntes_texto}
 """.strip()
-    return self._generate_content_text(prompt)
+        return self._generate_content_text(prompt)
 
     def generate_definition(self, concepto: str) -> str:
-    prompt = f"""
+        prompt = f"""
 Define el concepto '{concepto}' en contexto de Neurociencias.
 
 Formato obligatorio:
@@ -100,8 +112,8 @@ Formato obligatorio:
 - Respuesta maxima de 2000 caracteres.
 """.strip()
 
-    text = self._generate_content_text(prompt)
-    if not text:
-        LOGGER.warning("Gemini devolvio una definicion vacia para concepto: %s", concepto)
-        return "No se pudo generar una definicion para ese concepto."
-    return self._truncate_text(text, max_chars=2000)
+        text = self._generate_content_text(prompt)
+        if not text:
+            LOGGER.warning("Gemini devolvio una definicion vacia para concepto: %s", concepto)
+            return "No se pudo generar una definicion para ese concepto."
+        return self._truncate_text(text, max_chars=2000)

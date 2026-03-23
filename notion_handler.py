@@ -4,22 +4,97 @@ from datetime import datetime
 from typing import Any
 
 from notion_client import Client
+from notion_client.errors import APIResponseError
 
 
 class NotionHandler:
-    def __init__(self, notion_token: str, apuntes_db_id: str, resumenes_db_id: str) -> None:
+    def __init__(
+        self,
+        notion_token: str,
+        apuntes_db_id: str,
+        resumenes_db_id: str,
+        resumenes_title_property: str | None = None,
+    ) -> None:
         self.client = Client(auth=notion_token)
         self.apuntes_db_id = apuntes_db_id
         self.resumenes_db_id = resumenes_db_id
-        self.resumenes_title_property = self._find_title_property(resumenes_db_id)
+        self.apuntes_data_source_id = self._get_primary_data_source_id(apuntes_db_id)
+        self.resumenes_data_source_id = self._get_primary_data_source_id(resumenes_db_id)
+        self.resumenes_title_property = self._find_title_property(
+            resumenes_db_id,
+            preferred_title_property=resumenes_title_property,
+        )
 
-    def _find_title_property(self, database_id: str) -> str:
-        db_info = self.client.databases.retrieve(database_id=database_id)
+    @staticmethod
+    def _properties_debug(properties: dict[str, Any]) -> str:
+        if not properties:
+            return "(sin propiedades)"
+        return ", ".join(f"{name}:{info.get('type', 'unknown')}" for name, info in properties.items())
+
+    def _get_primary_data_source_id(self, database_id: str) -> str | None:
+        try:
+            db_info = self.client.databases.retrieve(database_id=database_id)
+        except APIResponseError:
+            return None
+
+        data_sources = db_info.get("data_sources", [])
+        if not data_sources:
+            return None
+
+        first = data_sources[0]
+        return first.get("id")
+
+    def _find_title_property(
+        self,
+        database_id: str,
+        preferred_title_property: str | None = None,
+    ) -> str:
+        try:
+            db_info = self.client.databases.retrieve(database_id=database_id)
+        except APIResponseError as err:
+            raise RuntimeError(
+                "No se pudo acceder a la base de datos de Resumenes en Notion. "
+                "Verifica el ID y comparte la DB con tu integracion. "
+                f"Detalle: {err}"
+            ) from err
+
         properties: dict[str, Any] = db_info.get("properties", {})
+
+        # En el modelo nuevo de Notion, las propiedades pueden venir en data_sources.
+        if not properties and self.resumenes_data_source_id:
+            try:
+                ds_info = self.client.data_sources.retrieve(
+                    data_source_id=self.resumenes_data_source_id
+                )
+            except APIResponseError as err:
+                raise RuntimeError(
+                    "La DB de Resumenes usa data_sources, pero no se pudo leer su esquema. "
+                    f"Data source id: {self.resumenes_data_source_id}. Detalle: {err}"
+                ) from err
+
+            properties = ds_info.get("properties", {})
+
+        if preferred_title_property:
+            if preferred_title_property in properties:
+                return preferred_title_property
+            raise ValueError(
+                "La propiedad de titulo configurada en NOTION_RESUMEN_TITLE_PROPERTY "
+                f"('{preferred_title_property}') no existe en la DB de Resumenes. "
+                f"Propiedades detectadas: {self._properties_debug(properties)}"
+            )
+
         for prop_name, prop_info in properties.items():
             if prop_info.get("type") == "title":
                 return prop_name
-        raise ValueError("No se encontro una propiedad de tipo title en la DB de Notion.")
+
+        # Fallback pragmatico: en muchas DB la columna principal se llama Name.
+        if "Name" in properties:
+            return "Name"
+
+        raise ValueError(
+            "No se encontro una propiedad de tipo title en la DB de Resumenes. "
+            f"Propiedades detectadas: {self._properties_debug(properties)}"
+        )
 
     def _build_materia_fecha_filter(self, materia: str, fecha_iso: str) -> dict[str, Any]:
         fecha_dt = datetime.strptime(fecha_iso, "%Y-%m-%d")
@@ -47,13 +122,22 @@ class NotionHandler:
         next_cursor: str | None = None
 
         while True:
-            result = self.client.databases.query(
-                database_id=self.apuntes_db_id,
-                filter=query_filter,
-                sorts=[{"timestamp": "created_time", "direction": "ascending"}],
-                page_size=100,
-                start_cursor=next_cursor,
-            )
+            if self.apuntes_data_source_id:
+                result = self.client.data_sources.query(
+                    data_source_id=self.apuntes_data_source_id,
+                    filter=query_filter,
+                    sorts=[{"timestamp": "created_time", "direction": "ascending"}],
+                    page_size=100,
+                    start_cursor=next_cursor,
+                )
+            else:
+                result = self.client.databases.query(
+                    database_id=self.apuntes_db_id,
+                    filter=query_filter,
+                    sorts=[{"timestamp": "created_time", "direction": "ascending"}],
+                    page_size=100,
+                    start_cursor=next_cursor,
+                )
             pages.extend(result.get("results", []))
 
             if not result.get("has_more"):
@@ -117,8 +201,14 @@ class NotionHandler:
         if fuente_fecha:
             properties["Fecha"] = {"date": {"start": fuente_fecha}}
 
+        parent = (
+            {"data_source_id": self.resumenes_data_source_id}
+            if self.resumenes_data_source_id
+            else {"database_id": self.resumenes_db_id}
+        )
+
         page = self.client.pages.create(
-            parent={"database_id": self.resumenes_db_id},
+            parent=parent,
             properties=properties,
             children=children[:100],
         )
