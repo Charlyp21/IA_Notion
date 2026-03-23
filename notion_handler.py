@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from notion_client import Client
@@ -23,10 +23,9 @@ class NotionHandler:
 
     def _build_materia_fecha_filter(self, materia: str, fecha_iso: str) -> dict[str, Any]:
         fecha_dt = datetime.strptime(fecha_iso, "%Y-%m-%d")
-        fecha_siguiente = fecha_dt + timedelta(days=1)
 
-        # Feynman: piensa en un colador doble. El primer colador deja pasar
-        # solo la materia elegida y el segundo solo lo creado ese dia.
+        # Feynman: imagina una puerta con 2 reglas: misma materia y
+        # fecha de creacion desde el dia de inicio en adelante (hasta hoy).
         return {
             "and": [
                 {
@@ -37,21 +36,33 @@ class NotionHandler:
                     "timestamp": "created_time",
                     "created_time": {"on_or_after": fecha_dt.date().isoformat()},
                 },
-                {
-                    "timestamp": "created_time",
-                    "created_time": {"before": fecha_siguiente.date().isoformat()},
-                },
             ]
         }
 
     def get_apuntes_by_materia_and_fecha(self, materia: str, fecha_iso: str) -> list[dict[str, Any]]:
         query_filter = self._build_materia_fecha_filter(materia=materia, fecha_iso=fecha_iso)
-        result = self.client.databases.query(
-            database_id=self.apuntes_db_id,
-            filter=query_filter,
-            page_size=50,
-        )
-        return result.get("results", [])
+
+        # Traemos todas las paginas desde la fecha de inicio usando paginacion.
+        pages: list[dict[str, Any]] = []
+        next_cursor: str | None = None
+
+        while True:
+            result = self.client.databases.query(
+                database_id=self.apuntes_db_id,
+                filter=query_filter,
+                sorts=[{"timestamp": "created_time", "direction": "ascending"}],
+                page_size=100,
+                start_cursor=next_cursor,
+            )
+            pages.extend(result.get("results", []))
+
+            if not result.get("has_more"):
+                break
+            next_cursor = result.get("next_cursor")
+            if not next_cursor:
+                break
+
+        return pages
 
     def _extract_rich_text(self, rich_text: list[dict[str, Any]]) -> str:
         return "".join(chunk.get("plain_text", "") for chunk in rich_text)

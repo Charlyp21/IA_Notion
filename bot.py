@@ -31,7 +31,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     del context
     await update.message.reply_text(
         "Hola. Soy tu bot de apuntes en Notion.\n"
-        "Usa /horario para ver tu horario y /resumir [materia] [YYYY-MM-DD] para generar resumenes."
+        "Usa /horario para ver tu horario y /resumir [materia] [YYYY-MM-DD] para resumir"
+        " todos los apuntes de esa materia desde esa fecha hasta hoy."
     )
 
 
@@ -52,7 +53,10 @@ async def resumir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     services: Services = context.application.bot_data["services"]
 
     if len(context.args) < 2:
-        await update.message.reply_text("Uso: /resumir [materia] [YYYY-MM-DD]")
+        await update.message.reply_text(
+            "Uso: /resumir [materia] [YYYY-MM-DD]\n"
+            "Toma apuntes de la materia desde esa fecha hasta hoy."
+        )
         return
 
     fecha = context.args[-1]
@@ -71,7 +75,9 @@ async def resumir_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     if not apuntes:
-        await update.message.reply_text("No encontre apuntes para esa materia y fecha.")
+        await update.message.reply_text(
+            "No encontre apuntes para esa materia desde la fecha indicada hasta hoy."
+        )
         return
 
     textos: list[str] = []

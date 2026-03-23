@@ -63,7 +63,7 @@ python bot.py
 
 - `/start`: mensaje inicial.
 - `/horario`: envia la imagen del horario usando `PATH_HORARIO`.
-- `/resumir [materia] [YYYY-MM-DD]`: obtiene apuntes por materia y fecha, genera resumen y lo guarda en Notion.
+- `/resumir [materia] [YYYY-MM-DD]`: obtiene apuntes por materia desde la fecha indicada hasta hoy, genera resumen y lo guarda en Notion.
 
 ## Nota de escalabilidad
 
