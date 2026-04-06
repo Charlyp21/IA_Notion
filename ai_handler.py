@@ -109,11 +109,11 @@ Formato obligatorio:
 - Definicion clara y tecnica.
 - Menciona su relevancia neurocientifica.
 - Incluye un ejemplo breve de aplicacion.
-- Respuesta maxima de 2000 caracteres.
+- Respuesta maxima de 500 caracteres.
 """.strip()
 
         text = self._generate_content_text(prompt)
         if not text:
             LOGGER.warning("Gemini devolvio una definicion vacia para concepto: %s", concepto)
             return "No se pudo generar una definicion para ese concepto."
-        return self._truncate_text(text, max_chars=2000)
+        return self._truncate_text(text, max_chars=500)
