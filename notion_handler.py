@@ -75,17 +75,20 @@ class NotionHandler:
             properties = ds_info.get("properties", {})
 
         if preferred_title_property:
-            if preferred_title_property in properties:
+            configured = properties.get(preferred_title_property)
+            if configured and configured.get("type") == "title":
                 return preferred_title_property
-            raise ValueError(
-                "La propiedad de titulo configurada en NOTION_RESUMEN_TITLE_PROPERTY "
-                f"('{preferred_title_property}') no existe en la DB de Resumenes. "
-                f"Propiedades detectadas: {self._properties_debug(properties)}"
-            )
 
         for prop_name, prop_info in properties.items():
             if prop_info.get("type") == "title":
                 return prop_name
+
+        if preferred_title_property:
+            raise ValueError(
+                "La propiedad configurada en NOTION_RESUMEN_TITLE_PROPERTY "
+                f"('{preferred_title_property}') no existe o no es de tipo title en la DB de Resumenes. "
+                f"Propiedades detectadas: {self._properties_debug(properties)}"
+            )
 
         # Fallback pragmatico: en muchas DB la columna principal se llama Name.
         if "Name" in properties:

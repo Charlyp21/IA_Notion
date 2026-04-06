@@ -50,7 +50,7 @@ cp .env.example .env
 - `NOTION_TOKEN`
 - `NOTION_DB_APUNTES_ID`
 - `NOTION_DB_RESUMENES_ID`
-- `NOTION_RESUMEN_TITLE_PROPERTY` (opcional, por defecto suele ser `Name`)
+- `NOTION_RESUMEN_TITLE_PROPERTY` (opcional; puedes usar `Nombre` y, si no coincide, el bot intenta autodetectar la columna de tipo `Title`)
 - `GEMINI_API_KEY`
 - `PATH_HORARIO` (por defecto `assets/horario.png`)
 
@@ -71,18 +71,25 @@ El bot necesita estar activo 24/7. Aqui hay 3 opciones ordenadas de menor a mayo
 Para correr en segundo plano sin que la sesion SSH lo interrumpa:
 
 ```bash
+cd /home/<tu-usuario>/Dev/Github/Neurobot/IA_Notion
+
+# Activa tu entorno virtual (usa UNA de estas dos opciones segun tu setup)
 source venv/bin/activate
-nohup python bot.py > bot.log 2>&1 &
+# o si tu entorno esta en la raiz del repo:
+# source ../.venv/bin/activate
+
+# Inicia el bot en background y deja logs en nohup.out
+nohup python bot.py > nohup.out 2>&1 &
 ```
 
 Detalles:
 - `nohup`: ignora hangup si se desconecta SSH.
-- `> bot.log 2>&1`: guarda stdout y stderr en `bot.log`.
+- `> nohup.out 2>&1`: guarda stdout y stderr en `nohup.out`.
 - `&`: ejecuta en background.
 
 Ver logs:
 ```bash
-tail -f bot.log
+tail -f nohup.out
 ```
 
 Detener:

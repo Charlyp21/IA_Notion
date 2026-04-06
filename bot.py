@@ -32,12 +32,26 @@ class Services:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     del context
     await update.message.reply_text(
-        "Hola. Soy tu bot de apuntes en Notion.\n"
-        "Usa /horario para ver tu horario y /resumir [materia] [YYYY-MM-DD] para resumir"
-        " todos los apuntes de esa materia desde esa fecha hasta hoy.\n"
-        "Tambien puedes usar /definir [concepto] para obtener una definicion neurocientifica."
+        "Hola. Soy tu bot de Neuro para Notion.\n"
+        "Usa /help para ver los comandos disponibles."
     )
 
+async def vida_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    del context
+    await update.message.reply_text(
+        "Hola! sigo vivo xd"
+    )
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    del context
+    await update.message.reply_text(
+        "Comandos disponibles:\n"
+        "/horario - Muestra la imagen del horario.\n"
+        "/resumir [materia] [YYYY-MM-DD] - Genera un resumen de los apuntes de esa materia desde la fecha indicada hasta hoy.\n"
+        "/definir [concepto] - Genera una definicion para el concepto indicado con Gemini.\n"
+        "/vida - Comprueba que el bot sigue vivo\n"
+        "/help - Muestra este mensaje de ayuda."
+    )
 
 async def horario_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     services: Services = context.application.bot_data["services"]
