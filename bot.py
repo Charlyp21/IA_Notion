@@ -38,9 +38,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def vida_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     del context
-    await update.message.reply_text(
-        "Hola! sigo vivo xd"
-    )
+    await update.message.reply_text("Hola! sigo vivo xd")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     del context
@@ -273,6 +271,8 @@ def main() -> None:
     app.add_handler(CommandHandler("horario", horario_command))
     app.add_handler(CommandHandler("resumir", resumir_command))
     app.add_handler(CommandHandler("definir", definir_command))
+    app.add_handler(CommandHandler("vida", vida_command))
+    app.add_handler(CommandHandler("help", help_command))
     app.add_error_handler(global_error_handler)
 
     app.run_polling()
