@@ -14,7 +14,11 @@ Ejemplo:
 
 Respuesta esperada:
 - Mensaje de bienvenida.
-- Explicacion breve de `/horario`, `/resumir` y `/definir`.
+- Mencion del comando `/help`.
+
+## /help
+
+Muestra una lista de los comandos disponibles junto a una breve descripción 
 
 ## /horario
 
