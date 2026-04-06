@@ -29,6 +29,7 @@ Bot de Telegram para consultar apuntes en Notion, generar resumenes tecnicos con
 ## Instalacion en Linux (venv + pip)
 
 ```bash
+git clone https://github.com/Charlyp21/IA_Notion
 cd IA_Notion
 python -m venv venv
 source venv/bin/activate
@@ -45,6 +46,15 @@ cp .env.example .env
 ```
 
 2. Llena los valores en `.env`:
+
+```bash
+# Abre el archivo
+nano .env
+
+# Edita los tokens y guarda con ctrl-0 / enter / ctrl-x
+```
+
+Los tokens que se necesitan son:
 
 - `TELEGRAM_TOKEN`
 - `NOTION_TOKEN`
@@ -71,7 +81,7 @@ El bot necesita estar activo 24/7. Aqui hay 3 opciones ordenadas de menor a mayo
 Para correr en segundo plano sin que la sesion SSH lo interrumpa:
 
 ```bash
-cd /home/<tu-usuario>/Dev/Github/Neurobot/IA_Notion
+cd IA_Notion
 
 # Activa tu entorno virtual (usa UNA de estas dos opciones segun tu setup)
 source venv/bin/activate
@@ -196,7 +206,9 @@ En Google Cloud Compute Engine, para que la VM no se apague:
 
 ## Comandos del bot
 
-- `/start`: mensaje inicial.
+- `/start`: Mensaje inicial.
+- `/vida`: Comprueba si el bot esta funcionando
+- `/help`: Muestra la info de los comandos del bot
 - `/horario`: envia la imagen del horario usando `PATH_HORARIO`.
 - `/resumir [materia] [YYYY-MM-DD]`: obtiene apuntes por materia desde la fecha indicada hasta hoy, genera resumen y lo guarda en Notion.
 - `/definir [concepto]`: genera una definicion orientada a Neurociencias (maximo 2000 caracteres).
